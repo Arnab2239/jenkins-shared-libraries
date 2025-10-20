@@ -1,7 +1,7 @@
 #!/usr/bin/env groovy
 
 /**
- * Update Kubernetes manifests with new image tags and push to GitHub
+ * Update Kubernetes manifests with new image tags
  */
 def call(Map config = [:]) {
     def imageTag = config.imageTag ?: error("Image tag is required")
@@ -9,10 +9,9 @@ def call(Map config = [:]) {
     def gitCredentials = config.gitCredentials ?: 'github-credentials'
     def gitUserName = config.gitUserName ?: 'Jenkins CI'
     def gitUserEmail = config.gitUserEmail ?: 'jenkins@example.com'
-    def gitRepo = config.gitRepo ?: 'arnab-e-commerce-app'   // default repo
-
+    
     echo "Updating Kubernetes manifests with image tag: ${imageTag}"
-
+    
     withCredentials([usernamePassword(
         credentialsId: gitCredentials,
         usernameVariable: 'GIT_USERNAME',
@@ -23,34 +22,33 @@ def call(Map config = [:]) {
             git config user.name "${gitUserName}"
             git config user.email "${gitUserEmail}"
         """
-
-        // Update deployment manifests
+        
+        // Update deployment manifests with new image tags - using proper Linux sed syntax
         sh """
-            # Update main application deployment
-            sed -i "s|image: trainwithshubham/easyshop-app:.*|image: arnab23/easyshop-app:${imageTag}|g" ${manifestsPath}/08-easyshop-deployment.yaml
-
+            # Update main application deployment - note the correct image name is Arnb2239trainwithshubham/easyshop-app
+            sed -i "s|image: Arnb2239/easyshop-app:.*|image: Arnb2239/easyshop-app:${imageTag}|g" ${manifestsPath}/08-easyshop-deployment.yaml
+            
             # Update migration job if it exists
             if [ -f "${manifestsPath}/12-migration-job.yaml" ]; then
-                sed -i "s|image: arnab23/easyshop-migration:.*|image: arnab23/easyshop-migration:${imageTag}|g" ${manifestsPath}/12-migration-job.yaml
+                sed -i "s|image: Arnb2239/easyshop-migration:.*|image: Arnb2239/easyshop-migration:${imageTag}|g" ${manifestsPath}/12-migration-job.yaml
             fi
-
-            # Update ingress domain if file exists
+            
+            # Ensure ingress is using the correct domain
             if [ -f "${manifestsPath}/10-ingress.yaml" ]; then
                 sed -i "s|host: .*|host: easyshop.letsdeployit.com|g" ${manifestsPath}/10-ingress.yaml
             fi
-        """
-
-        // Commit and push changes only if something changed
-        sh """
+            
+            # Check for changes
             if git diff --quiet; then
                 echo "No changes to commit"
             else
+                # Commit and push changes
                 git add ${manifestsPath}/*.yaml
                 git commit -m "Update image tags to ${imageTag} and ensure correct domain [ci skip]"
-
-                # Always push to the correct repo
-                git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/Arnab2239/${gitRepo}.git
-                git push origin HEAD:${GIT_BRANCH}
+                
+                # Set up credentials for push
+                git remote set-url origin https://\${GIT_USERNAME}:\${GIT_PASSWORD}@github.com/Arnb2239/arnab-e-commerce-app.git
+                git push origin HEAD:\${GIT_BRANCH}
             fi
         """
     }
